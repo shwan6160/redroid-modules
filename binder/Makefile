@@ -13,6 +13,11 @@ install: all
 	cp binder_linux.ko $(INSTALL_MOD_DIR)
 	depmod -a
 	modprobe binder_linux devices="binder,hwbinder,vndbinder"
+	mkdir -p /dev/binderfs
+	-mount -t binder binder /dev/binderfs
+	ln -sf /dev/binderfs/binder /dev/binder
+	ln -sf /dev/binderfs/hwbinder /dev/hwbinder
+	ln -sf /dev/binderfs/vndbinder /dev/vndbinder
 
 modules_install:
 	$(MAKE) -C $(KDIR) M=$$PWD modules_install
