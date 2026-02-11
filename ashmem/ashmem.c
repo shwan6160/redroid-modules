@@ -28,6 +28,26 @@
 #include "ashmem.h"
 #include "deps.h"
 
+#include <linux/kprobe.h>
+typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+static kallsyms_lookup_name_t kallsyms_lookup_name_func;
+static struct kprobe kp = {
+	.symbol_name = "kallsyms_lookup_name",
+};
+
+unsigned long kallsyms_lookup_name(const char *name)
+{
+	if (!kallsyms_lookup_name_func) {
+		int ret = register_kprobe(&kp);
+		if (ret < 0) {
+			return 0;
+		}
+		kallsyms_lookup_name_func = (kallsyms_lookup_name_t) kp.addr;
+		unregister_kprobe(&kp);
+	}
+	return kallsyms_lookup_name_func(name);
+}
+
 #define ASHMEM_NAME_PREFIX "dev/ashmem/"
 #define ASHMEM_NAME_PREFIX_LEN (sizeof(ASHMEM_NAME_PREFIX) - 1)
 #define ASHMEM_FULL_NAME_LEN (ASHMEM_NAME_LEN + ASHMEM_NAME_PREFIX_LEN)
