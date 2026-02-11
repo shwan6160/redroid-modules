@@ -28,7 +28,7 @@
 #include "ashmem.h"
 #include "deps.h"
 
-#include <linux/kprobe.h>
+#include <linux/kprobes.h>
 typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
 static kallsyms_lookup_name_t kallsyms_lookup_name_func;
 static struct kprobe kp = {
