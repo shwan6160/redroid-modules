@@ -3,12 +3,16 @@ obj-m := binder_linux.o
 binder_linux-y := binderfs.o binder.o binder_alloc.o idr.o deps.o
 
 KDIR ?= /lib/modules/`uname -r`/build
+INSTALL_MOD_DIR ?= /lib/modules/`uname -r`/extra 
 
 all:
 	$(MAKE) -C $(KDIR) M=$$PWD
 
 install: all
-	insmod binder_linux.ko
+	mkdir -p $(INSTALL_MOD_DIR)
+	cp binder_linux.ko $(INSTALL_MOD_DIR)
+	depmod -a
+	modprobe binder_linux devices="binder,hwbinder,vndbinder"
 
 modules_install:
 	$(MAKE) -C $(KDIR) M=$$PWD modules_install
