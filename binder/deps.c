@@ -10,6 +10,26 @@
 #include <linux/ipc_namespace.h>
 #include <linux/task_work.h>
 
+#include <linux/kprobes.h>
+#include <linux/file.h>
+
+typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+static kallsyms_lookup_name_t kallsyms_lookup_name_func;
+static struct kprobe kp = {
+	.symbol_name = "kallsyms_lookup_name",
+};
+
+unsigned long kallsyms_lookup_name(const char *name)
+{
+	if (!kallsyms_lookup_name_func) {
+		int ret = register_kprobe(&kp);
+		if (ret < 0) return 0;
+		kallsyms_lookup_name_func = (kallsyms_lookup_name_t) kp.addr;
+		unregister_kprobe(&kp);
+	}
+	return kallsyms_lookup_name_func(name);
+}
+
 typedef void (*zap_page_range_ptr_t)(struct vm_area_struct *, unsigned long, unsigned long);
 static zap_page_range_ptr_t zap_page_range_ptr = NULL;
 void zap_page_range(struct vm_area_struct *vma, unsigned long address, unsigned long size)
@@ -82,9 +102,9 @@ init_ipc_ns_ptr_t get_init_ipc_ns_ptr(void)
     return init_ipc_ns_ptr;
 }
 
-typedef int (*task_work_add_ptr_t)(struct task_struct *task, struct callback_head *twork, bool notify);
+typedef int (*task_work_add_ptr_t)(struct task_struct *task, struct callback_head *twork, enum task_work_notify_mode notify);
 static task_work_add_ptr_t task_work_add_ptr = NULL;
-int task_work_add(struct task_struct *task, struct callback_head *twork, bool notify)
+int task_work_add(struct task_struct *task, struct callback_head *twork, enum task_work_notify_mode notify)
 {
     if (!task_work_add_ptr)
         task_work_add_ptr = (task_work_add_ptr_t) kallsyms_lookup_name("task_work_add");
@@ -98,6 +118,23 @@ void mmput_async(struct mm_struct *mm)
     if (!mmput_async_ptr)
        mmput_async_ptr = (mmput_async_ptr_t) kallsyms_lookup_name("mmput_async");
     mmput_async_ptr(mm);
+}
+
+
+typedef int (*close_fd_get_file_t)(unsigned int fd, struct file **res);
+int close_fd_get_file(unsigned int fd, struct file **res)
+{
+	static close_fd_get_file_t func = NULL;
+
+	if (!func) {
+	    func = (close_fd_get_file_t) kallsyms_lookup_name("close_fd_get_file");
+	}
+
+	if (func) {
+		return func(fd, res);
+	}
+
+	return -ENOENT;
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 1)
